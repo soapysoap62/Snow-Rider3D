@@ -16,6 +16,86 @@
     <script>
         var gameInstance = UnityLoader.instantiate("gameContainer", "Build/SnowRider3D-gd-1.json", {onProgress: UnityProgress,Module:{onRuntimeInitialized: function() {UnityProgress(gameInstance, "complete")}}});
     </script>
+
+    <!-- === START: Score overlay + P-key handler (JavaScript) === -->
+    <style>
+      /* Simple overlay style */
+      #html-score-overlay {
+        position: fixed;
+        left: 12px;
+        top: 12px;
+        z-index: 9999;
+        background: rgba(0,0,0,0.6);
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-family: Arial, sans-serif;
+        font-size: 16px;
+        pointer-events: none; /* doesn't block clicks */
+      }
+      #html-score-overlay .label { opacity: .9; font-weight: 600; margin-right: 8px; }
+      #html-score-overlay .value { font-variant-numeric: tabular-nums; }
+    </style>
+    <script>
+      (function() {
+        // Create overlay
+        var overlay = document.createElement('div');
+        overlay.id = 'html-score-overlay';
+        overlay.innerHTML = '<span class="label">HTML Score:</span><span class="value" id="html-score-value">0</span>';
+        document.addEventListener('DOMContentLoaded', function() {
+          document.body.appendChild(overlay);
+        });
+
+        // Score state
+        var score = 0;
+        function updateOverlay() {
+          var el = document.getElementById('html-score-value');
+          if (el) el.textContent = score;
+        }
+
+        // Helper: Try to notify Unity (optional)
+        // If your Unity build has a GameObject named "GameController" with AddPointsFromJS(string)
+        // SendMessage will be invoked. This will silently fail if not present.
+        function tryNotifyUnity(points) {
+          try {
+            if (typeof gameInstance !== 'undefined' && gameInstance && typeof gameInstance.SendMessage === 'function') {
+              // GameObject name and method name must match what's implemented in Unity.
+              // Change 'GameController' and 'AddPointsFromJS' if your Unity project uses different names.
+              gameInstance.SendMessage('GameController', 'AddPointsFromJS', String(points));
+            }
+          } catch (err) {
+            // ignore errors (Unity might not expose SendMessage in this build)
+            console.debug('Notify Unity failed or not available:', err);
+          }
+        }
+
+        // Key handler: add 10 points on 'p' key
+        window.addEventListener('keydown', function(e) {
+          // ignore typing into inputs
+          var ae = document.activeElement;
+          var tag = ae && ae.tagName ? ae.tagName.toLowerCase() : '';
+          if (tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable)) return;
+
+          var key = e.key || (e.keyCode ? String.fromCharCode(e.keyCode) : '');
+          if (!key) return;
+          if (key.toLowerCase() === 'p') {
+            score += 10;
+            updateOverlay();
+            tryNotifyUnity(10);
+            // optional: prevent default browser action
+            e.preventDefault();
+          }
+        }, false);
+
+        // Expose for debugging in console
+        window.HTMLScore = {
+          get: function() { return score; },
+          add: function(n) { score += Number(n) || 0; updateOverlay(); tryNotifyUnity(n); },
+          reset: function() { score = 0; updateOverlay(); }
+        };
+      })();
+    </script>
+    <!-- === END: Score overlay + P-key handler === -->
 </head>
 <body style="overflow:hidden;padding:0px;margin:0px;">
     <div class="webgl-content">
@@ -23,4 +103,3 @@
     </div>
 </body>
 </html>
-
